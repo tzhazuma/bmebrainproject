@@ -1,0 +1,41 @@
+# T2T-Bridge default training configuration
+
+model:
+  dim: 64                      # Base channel dimension
+  dim_mults: [1, 2, 4, 8]     # Channel multipliers per U-Net level
+  resnet_blocks: 2
+  dropout: 0.0
+  image_size: [128, 128, 32]  # H × W × D patches
+
+diffusion:
+  timesteps: 1000              # Training discretization steps
+  beta_start: 1.0e-4
+  beta_end: 3.0e-4
+  schedule: "linear"           # "linear" or "cosine"
+
+training:
+  batch_size: 16
+  lr: 1.0e-4
+  weight_decay: 1.0e-6
+  ema_decay: 0.9999
+  lambda_structure: 0.1        # Structure consistency weight
+  max_epochs: 200
+  gradient_clip: 1.0
+
+inference:
+  nfe: 15                      # Number of function evaluations
+  cfg_scale: 1.5               # CFG guidance strength (>1 stronger conditioning)
+
+data:
+  thin_spacing: [0.8, 0.8, 0.8]      # mm (z, y, x)
+  thick_spacing: [5.2, 0.4, 0.4]     # mm
+  thick_sim_method: "fourier"         # "fourier", "gaussian", "average"
+  augment: true
+  normalize: "tanh"                   # [-1, 1]
+  age_groups:
+    - [0, 2]
+    - [2, 6]
+    - [6, 12]
+    - [12, 24]
+    - [24, 48]
+    - [48, 72]

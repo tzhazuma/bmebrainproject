@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Data & Models (ignore root-level, but keep subproject data __init__.py)
+/data/
+checkpoints/
+results/
+*.nii.gz
+*.nii
+*.dcm
+*.IMA
+*.pt
+*.pth
+*.ckpt
+*.onnx
+*.pkl
+
+# Logs
+logs/
+*.log
+wandb/
+lightning_logs/
+tensorboard/
+
+# System
+.DS_Store
+Thumbs.db
+*.Zone.Identifier
+
+# Environment
+.env
+.env.local
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb

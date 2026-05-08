@@ -1,0 +1,36 @@
+# Multimodal VAE default training configuration
+
+model:
+  modality: t1w
+  latent_dim: 256
+  hidden_dims: [128, 64]
+  dropout: 0.3
+
+diffusion:
+  timesteps: 1000
+  beta_start: 1.0e-4
+  beta_end: 3.0e-4
+  schedule: linear
+
+training:
+  batch_size: 16
+  lr: 1.0e-4
+  weight_decay: 1.0e-6
+  ema_decay: 0.9999
+  lambda_structure: 0.1
+  max_epochs: 200
+  gradient_clip: 1.0
+  warmup_epochs: 5
+  modality_dropout:
+    p_drop: 0.3
+    schedule: constant     # constant or increasing
+
+inference:
+  nfe: 15
+  cfg_scale: 1.5
+
+data:
+  thin_spacing: [0.8, 0.8, 0.8]
+  thick_spacing: [5.2, 0.4, 0.4]
+  thick_sim_method: fourier
+  augment: true
