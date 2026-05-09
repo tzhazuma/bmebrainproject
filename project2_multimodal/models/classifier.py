@@ -23,7 +23,7 @@ class DiagnosisHead(nn.Module):
 
         for hdim in hidden_dims:
             layers.append(nn.Linear(prev_dim, hdim))
-            layers.append(nn.BatchNorm1d(hdim))
+            layers.append(nn.LayerNorm(hdim))          # LayerNorm works with batch_size=1
             layers.append(nn.ReLU(inplace=True))
             layers.append(nn.Dropout(dropout))
             prev_dim = hdim

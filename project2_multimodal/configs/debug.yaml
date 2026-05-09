@@ -1,0 +1,22 @@
+# Debug config for 8GB VRAM (RTX 4060 Laptop)
+model:
+  modalities: ["t1w", "fdg_pet", "tau_pet"]
+  latent_dim: 128              # Reduced latent dim
+  hidden_dims: [64, 32]        # Smaller MLP
+  dropout: 0.3
+  patch_size: [32, 32, 16]    # Smaller patches
+
+training:
+  batch_size: 4
+  lr: 1.0e-4
+  weight_decay: 1.0e-5
+  beta_kl: 0.001
+  max_epochs: 5               # Quick test
+  warmup_epochs: 1
+  lambda_recon: 1.0
+  lambda_cross: 0.5
+  lambda_cls: 1.0
+  lambda_contra: 0.1
+  modality_dropout:
+    p_drop: 0.3
+    schedule: constant

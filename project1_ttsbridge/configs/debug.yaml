@@ -1,0 +1,26 @@
+# Debug config for 8GB VRAM (RTX 4060 Laptop)
+model:
+  dim: 32                      # Reduced base dimension
+  dim_mults: [1, 2, 4]         # 3-level U-Net (was [1,2,4,8])
+  resnet_blocks: 1             # Fewer ResBlocks
+  dropout: 0.0
+  image_size: [64, 64, 32]    # Smaller patches (H×W×D)
+
+diffusion:
+  timesteps: 100               # Fewer timesteps for debug
+  beta_start: 1.0e-4
+  beta_end: 3.0e-4
+  schedule: "linear"
+
+training:
+  batch_size: 4                # Small batch for 8GB VRAM
+  lr: 1.0e-4
+  weight_decay: 1.0e-6
+  ema_decay: 0.9999
+  lambda_structure: 0.1
+  max_epochs: 5                # Quick test
+  gradient_clip: 1.0
+
+inference:
+  nfe: 5
+  cfg_scale: 1.5

@@ -58,7 +58,7 @@ def build_model(config, device):
     ).to(device)
 
     seg_head = SegmentationHead(
-        in_channels=config['model']['dim'],
+        in_channels=1,           # input is the generated image (1 channel)
         num_classes=3,
     ).to(device)
 

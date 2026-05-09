@@ -58,11 +58,13 @@ def build_model(config):
 
     # Cross-modal decoders
     decoders = nn.ModuleDict()
+    target_size = tuple(config['model'].get('patch_size', [64, 64, 32]))
     for mod in modalities:
         decoders[mod] = CrossModalDecoder(
             modality_name=mod,
             latent_dim=latent_dim,
             out_channels=1,
+            target_size=target_size,
         )
 
     # Diagnosis classifier
@@ -116,22 +118,28 @@ def train():
     scheduler = CosineAnnealingWarmRestarts(optimizer, T_0=20, T_mult=2)
 
     # Dataset
-    dataset = ADNIMultimodalDataset(
-        data_dir=args.data_dir,
-        split='train',
-        modalities=config['model'].get('modalities', ['t1w', 'fdg_pet', 'tau_pet']),
-        patch_size=config['model'].get('patch_size', [64, 64, 32]),
-        augment=True,
-        modality_drop_prob=config['training'].get('modality_dropout', {}).get('p_drop', 0.3),
-    )
+    if args.debug:
+        from project2_multimodal.data.synthetic_dataset import SyntheticMultimodalDataset
+        patch_size = config['model'].get('patch_size', [32, 32, 16])
+        dataset = SyntheticMultimodalDataset(num_samples=100, size=tuple(patch_size))
+    else:
+        dataset = ADNIMultimodalDataset(
+            data_dir=args.data_dir,
+            split='train',
+            modalities=config['model'].get('modalities', ['t1w', 'fdg_pet', 'tau_pet']),
+            patch_size=config['model'].get('patch_size', [64, 64, 32]),
+            augment=True,
+            modality_drop_prob=config['training'].get('modality_dropout', {}).get('p_drop', 0.3),
+        )
 
     dataloader = DataLoader(
         dataset,
         batch_size=config['training']['batch_size'],
         shuffle=True,
-        num_workers=4,
+        num_workers=0 if args.debug else 4,
         pin_memory=True,
         drop_last=True,
+        collate_fn=collate_fn,
     )
 
     # Checkpoint dir
@@ -180,17 +188,13 @@ def train():
                 z, mu, logvar, kl_loss = vae(img_device, avail)
 
                 # Fuse for classification
-                mus, _ = vae.encode(img_device, avail)
-                z_list = [
-                    torch.normal(mu_i, torch.exp(0.5 * lv_i))
-                    if torch.rand(1).item() > 0 else mu_i
-                    for mu_i, lv_i in zip(mus, [torch.zeros_like(m) for m in mus])
-                ]
+                mus, logvars = vae.encode(img_device, avail)
+                z_list = [mu for mu in mus]
                 fused_z = fusion(z_list)
 
                 # Classify
                 logits = classifier(fused_z)
-                focal_loss = FocalLoss(gamma=2.0)(logits.unsqueeze(0), label.unsqueeze(0))
+                focal_loss = FocalLoss(gamma=2.0)(logits, label.unsqueeze(0))
 
                 # Reconstruct available modalities
                 recon_outputs = {}
@@ -212,7 +216,7 @@ def train():
                     'kl': kl_loss,
                     'z': z,
                 }
-                loss, loss_dict = criterion(outputs, img_device, label)
+                loss, loss_dict = criterion(outputs, img_device, label.unsqueeze(0))
                 total_loss += loss
 
             total_loss = total_loss / len(images_list)

@@ -27,42 +27,45 @@ class ModalityDecoder(nn.Module):
     3D decoder that reconstructs a modality image from latent code.
 
     Uses transposed convolutions to upsample from latent to full 3D volume.
+    Automatically adjusts number of upsampling layers based on target size.
     """
 
     def __init__(self, latent_dim=256, out_channels=1, base_ch=256, target_size=(64, 64, 32)):
         super().__init__()
         self.target_size = target_size
 
-        # Initial FC to spatial feature map
-        init_spatial = tuple(d // 16 for d in target_size)  # e.g., (8, 8, 4) → 256
-        init_ch = base_ch
-        self.init_fc = nn.Linear(latent_dim, int(init_ch * torch.prod(torch.tensor(init_spatial)).item()))
+        # Compute how many upsampling stages needed
+        min_dim = min(target_size)
+        n_upsample = max(2, int(torch.log2(torch.tensor(min_dim)).item()) - 2)
+        init_spatial = tuple(max(2, d // (2 ** n_upsample)) for d in target_size)
 
-        # Decoder blocks (4x upsampling in total: 16x → target)
-        self.dec1 = nn.Sequential(
-            nn.ConvTranspose3d(init_ch, init_ch // 2, 4, stride=2, padding=1),
-            nn.GroupNorm(8, init_ch // 2),
-            nn.ReLU(inplace=True),
-        )
-        self.dec2 = nn.Sequential(
-            nn.ConvTranspose3d(init_ch // 2, init_ch // 4, 4, stride=2, padding=1),
-            nn.GroupNorm(8, init_ch // 4),
-            nn.ReLU(inplace=True),
-        )
-        self.dec3 = nn.Sequential(
-            nn.ConvTranspose3d(init_ch // 4, init_ch // 8, 4, stride=2, padding=1),
-            nn.GroupNorm(8, init_ch // 8),
-            nn.ReLU(inplace=True),
-        )
-        self.dec4 = nn.Sequential(
-            nn.ConvTranspose3d(init_ch // 8, init_ch // 16, 4, stride=2, padding=1),
-            nn.GroupNorm(8, init_ch // 16),
-            nn.ReLU(inplace=True),
-        )
+        self.init_spatial = init_spatial
+        init_ch = base_ch
+
+        # Initial FC to spatial feature map
+        n_elements = init_ch
+        for d in init_spatial:
+            n_elements *= d
+        self.init_fc = nn.Linear(latent_dim, n_elements)
+
+        # Decoder blocks
+        ch = init_ch
+        self.upsample_blocks = nn.ModuleList()
+        for i in range(n_upsample):
+            out_ch = max(32, ch // 2)
+            self.upsample_blocks.append(
+                nn.Sequential(
+                    nn.ConvTranspose3d(ch, out_ch, 4, stride=2, padding=1),
+                    nn.GroupNorm(min(8, out_ch), out_ch),
+                    nn.ReLU(inplace=True),
+                )
+            )
+            ch = out_ch
+
         self.final = nn.Sequential(
-            nn.Conv3d(init_ch // 16, init_ch // 32, 3, padding=1),
+            nn.Conv3d(ch, 32, 3, padding=1),
             nn.ReLU(inplace=True),
-            nn.Conv3d(init_ch // 32, out_channels, 1),
+            nn.Conv3d(32, out_channels, 1),
             nn.Tanh(),
         )
 
@@ -75,16 +78,16 @@ class ModalityDecoder(nn.Module):
         """
         B = z.shape[0]
         h = self.init_fc(z)
-        h = h.view(B, -1, *self.target_size)
-        h = h.view(B, -1, *(d // 16 for d in self.target_size))
+        h = h.view(B, -1, *self.init_spatial)
 
-        h = self.dec1(h)
-        h = self.dec2(h)
-        h = self.dec3(h)
-        h = self.dec4(h)
+        for block in self.upsample_blocks:
+            h = block(h)
 
         # Adjust to exact target size
-        h = F.interpolate(h, size=self.target_size, mode='trilinear', align_corners=False)
+        if list(h.shape[2:]) != list(self.target_size):
+            h = F.interpolate(
+                h, size=self.target_size, mode='trilinear', align_corners=False
+            )
         return self.final(h)
 
 

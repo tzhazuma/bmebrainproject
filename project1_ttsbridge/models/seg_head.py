@@ -12,20 +12,21 @@ import torch.nn.functional as F
 
 class SegmentationHead(nn.Module):
     """
-    Lightweight Conv3D decoder that takes U-Net bottleneck features
+    Lightweight Conv3D decoder that takes U-Net bottleneck features or generated image
     and outputs tissue probability maps (3 classes: GM, WM, CSF).
     """
 
     def __init__(self, in_channels=64, num_classes=3, hidden=32):
         super().__init__()
+        num_groups = min(8, hidden) if hidden > 1 else 1
         self.conv1 = nn.Sequential(
             nn.Conv3d(in_channels, hidden, 3, padding=1),
-            nn.GroupNorm(8, hidden),
+            nn.GroupNorm(num_groups if in_channels > 1 else 1, hidden) if num_groups > 1 else nn.BatchNorm3d(hidden),
             nn.ReLU(inplace=True),
         )
         self.conv2 = nn.Sequential(
             nn.Conv3d(hidden, hidden, 3, padding=1),
-            nn.GroupNorm(8, hidden),
+            nn.GroupNorm(num_groups, hidden) if num_groups > 1 else nn.BatchNorm3d(hidden),
             nn.ReLU(inplace=True),
         )
         self.conv3 = nn.Conv3d(hidden, num_classes, 1)
@@ -33,7 +34,7 @@ class SegmentationHead(nn.Module):
     def forward(self, features):
         """
         Args:
-            features: U-Net encoder features [B, C, D, H, W]
+            features: U-Net encoder features or image [B, C, D, H, W]
         Returns:
             tissue_probs: [B, num_classes, D, H, W]
         """

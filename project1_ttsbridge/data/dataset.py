@@ -211,42 +211,38 @@ class SyntheticDataGenerator(Dataset):
         )
 
         # Main brain sphere
-        center = (0, 0, 0)
         r = 0.7
-        brain = ((zz - center[0])**2 + (yy - center[1])**2 + (xx - center[2])**2) < r**2
+        brain = (zz**2 + yy**2 + xx**2) < r**2
         brain = brain.float()
 
-        # Ventricle sphere
-        vcenter = (0, 0, 0)
-        vr = 0.2
-        ventricle = ((zz - vcenter[0])**2 + (yy - vcenter[1])**2 + (xx - vcenter[2])**2) < vr**2
+        # Ventricle (smaller sphere, slightly offset)
+        vr = 0.18
+        ventricle = ((zz - 0.05)**2 + yy**2 + xx**2) < vr**2
         ventricle = ventricle.float()
 
         # Add noise
         brain = brain + torch.randn_like(brain) * 0.05
 
-        # Thin: full resolution
+        # Thin: full resolution [1, D, H, W]
         thin = brain.unsqueeze(0)
 
-        # Thick: blurred along z
+        # Thick: blur along z-axis (dim=1) via 3D convolution
         thick = thin.clone()
-        kernel = torch.ones(5) / 5
-        for c in range(thick.shape[1]):
-            thick[0, c] = torch.nn.functional.conv1d(
-                thick[0, c].unsqueeze(0).unsqueeze(0),
-                kernel.view(1, 1, -1),
-                padding=2,
-            ).squeeze()
+        kernel_z = torch.ones(1, 1, 5, 1, 1, dtype=torch.float32) / 5.0
+        thick = torch.nn.functional.conv3d(
+            thick.unsqueeze(0), kernel_z, padding=(2, 0, 0)
+        ).squeeze(0)
 
-        # Tissue map
+        # Tissue map [1, D, H, W] with labels {0=CSF, 1=GM, 2=other}
         tissue = torch.zeros_like(brain).long()
-        tissue[brain > 0.5] = 1  # GM
-        tissue[ventricle > 0.5] = 2  # CSF
+        tissue[(brain > 0.5) & (ventricle < 0.5)] = 1  # GM
+        tissue[ventricle > 0.5] = 2  # CSF/ventricle
+        tissue = tissue.unsqueeze(0)
 
         return {
             'thin': thin,
             'thick': thick,
-            'tissue': tissue.unsqueeze(0),
+            'tissue': tissue,
             'age': idx % 72,
             'subject': f'synth_{idx:04d}',
         }

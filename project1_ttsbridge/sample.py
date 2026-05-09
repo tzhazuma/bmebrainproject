@@ -49,7 +49,16 @@ def main():
         channel_mult=config['model']['dim_mults'],
     ).to(device)
 
-    denoiser.load_state_dict(ckpt.get('ema_denoiser', ckpt['bridge']['denoiser']))
+    # Load denoiser weights (handle 'bridge.state_dict()' format)
+    bridge_state = ckpt.get('bridge', ckpt)
+    denoiser_state = {}
+    for k, v in bridge_state.items():
+        if k.startswith('denoiser.'):
+            denoiser_state[k[len('denoiser.'):]] = v
+    if denoiser_state:
+        denoiser.load_state_dict(denoiser_state, strict=False)
+    elif 'ema_denoiser' in ckpt:
+        denoiser.load_state_dict(ckpt['ema_denoiser'], strict=False)
     denoiser.eval()
 
     bridge = DiffusionBridge(denoiser, **config['diffusion']).to(device)
