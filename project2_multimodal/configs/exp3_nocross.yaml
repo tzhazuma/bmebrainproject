@@ -1,0 +1,24 @@
+# Experiment 3: No cross-modal — only reconstruction + classification losses
+model:
+  modalities: ["t1w", "fdg_pet", "tau_pet"]
+  latent_dim: 128
+  hidden_dims: [64, 32]
+  dropout: 0.3
+  patch_size: [32, 32, 16]
+
+training:
+  batch_size: 4
+  lr: 1.0e-4
+  weight_decay: 1.0e-5
+  beta_kl: 0.001
+  max_epochs: 20
+  warmup_epochs: 2
+  lambda_recon: 1.0
+  lambda_cross: 0.0
+  lambda_cls: 1.0
+  lambda_contra: 0.0
+  modality_dropout:
+    p_drop: 0.3
+    schedule: constant
+
+exp_name: "exp3_nocross_dim128"

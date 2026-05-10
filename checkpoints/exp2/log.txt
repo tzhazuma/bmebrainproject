@@ -1,0 +1,23 @@
+Using device: cuda
+Training: exp2_large
+Epoch   0 | Loss: 2.4775 | Time: 12.8s
+Epoch   1 | Loss: 2.0067 | Time: 11.6s
+Epoch   2 | Loss: 1.7554 | Time: 11.5s
+Epoch   3 | Loss: 1.5781 | Time: 11.6s
+Epoch   4 | Loss: 1.3695 | Time: 11.7s
+Epoch   5 | Loss: 1.2496 | Time: 11.5s
+Epoch   6 | Loss: 1.2164 | Time: 11.6s
+Epoch   7 | Loss: 1.1577 | Time: 11.9s
+Epoch   8 | Loss: 1.0988 | Time: 10.3s
+Epoch   9 | Loss: 1.0484 | Time: 11.6s
+Epoch  10 | Loss: 0.9627 | Time: 12.0s
+Epoch  11 | Loss: 0.8875 | Time: 11.9s
+Epoch  12 | Loss: 0.8592 | Time: 12.1s
+Epoch  13 | Loss: 0.7808 | Time: 12.1s
+Epoch  14 | Loss: 0.7153 | Time: 12.2s
+Epoch  15 | Loss: 0.7181 | Time: 12.2s
+Epoch  16 | Loss: 0.6816 | Time: 12.7s
+Epoch  17 | Loss: 0.6699 | Time: 10.6s
+Epoch  18 | Loss: 0.6697 | Time: 5.3s
+Epoch  19 | Loss: 0.6853 | Time: 4.7s
+Training complete: exp2_large
