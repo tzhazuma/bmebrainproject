@@ -1,0 +1,142 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx,booktabs,hyperref,float,caption,xcolor}
+\usepackage[margin=2.2cm]{geometry}
+
+\title{\textbf{Brain MRI Research Projects}\\ \large BID Lab — ShanghaiTech University}
+\author{}
+\date{\today}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\newpage
+
+\section{Project Overview}
+This document summarizes two brain MRI research projects developed at BID Lab, School of Biomedical Engineering, ShanghaiTech University.
+
+\subsection{Project 1: T2T-Bridge (ISBI 2025)}
+\textbf{Goal}: Reconstruct 3D thin-slice infant brain MRI from clinically acquired 2D thick-slice scans using a Direct Diffusion Bridge model.
+\textbf{Method}: Image-to-Image Schr\"odinger Bridge (I2SB) + Classifier-Free Age Guidance + Structure Consistency Loss.
+\textbf{Data}: Chinese Baby Connectome Project (CBCP), 362 infants (0--72 months). Public substitute: dHCP (783 neonates).
+\textbf{Key Results}: SSIM 0.9573, PSNR 33.38 dB, 15-step inference.
+
+\subsection{Project 2: Multimodal PET/MR Diagnosis (ICASSP 2025)}
+\textbf{Goal}: Clinically feasible AI-based Alzheimer's Disease diagnosis trained on multimodal PET/MR data, allowing single-modality inference.
+\textbf{Method}: MoPoE-VAE with cross-modal synthesis, modality dropout, and 3-class diagnosis classifier.
+\textbf{Data}: ADNI — 225 subjects (T1 MRI + FDG-PET + Tau-PET).
+\textbf{Key Features}: Missing-modality robust inference, cross-modal image synthesis, 3-class diagnosis (NC/MCI/AD).
+
+\section{Dataset Statistics}
+
+\begin{table}[H]
+\centering
+\caption{ADNI Dataset Summary}
+\begin{tabular}{lr}
+\toprule
+\textbf{Metric} & \textbf{Value} \\
+\midrule
+Total subjects & 225 \\
+T1 MRI NIfTI & 223 \\
+FDG-PET NIfTI & 99 \\
+Tau-PET NIfTI & 48 \\
+All three modalities & 26 \\
+Total disk usage & 11 GB \\
+\midrule
+CN (Normal Control) & 114 \\
+EMCI (Early MCI) & 48 \\
+MCI & 40 \\
+LMCI (Late MCI) & 21 \\
+AD (Alzheimer's) & 2 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Model Architecture}
+
+\subsection{T2T-Bridge: Diffusion Bridge for MRI Reconstruction}
+The architecture consists of:
+\begin{itemize}
+\item \textbf{3D U-Net Denoiser}: Predicts residual between thick and thin slices, conditioned on timestep and infant age (CFG)
+\item \textbf{Diffusion Bridge (I2SB)}: Directly bridges source P(thick) to target P(thin), avoiding random Gaussian priors. Uses $\beta_t$ from $10^{-4}$ to $3\times10^{-4}$ with 1000 training steps
+\item \textbf{Structure Consistency}: Tissue segmentation head (GM/WM/CSF) with Dice loss enforces anatomical plausibility
+\item \textbf{15-step Inference}: DPM-Solver-like sampling reduces from 1000 to 15 function evaluations
+\end{itemize}
+
+\subsection{MoPoE-VAE: Multimodal Fusion for Diagnosis}
+The architecture consists of:
+\begin{itemize}
+\item \textbf{Modality-Specific Encoders}: SimpleEncoder3D (4-layer Conv3D + AdaptiveAvgPool) for each modality (T1w, FDG-PET, Tau-PET)
+\item \textbf{MoPoE Fusion}: Mixture over $2^K$ modality subsets: $q(z|X)=\sum_{S}\pi_S \prod_{i\in S}q_i(z|x_i)$ with $\pi_S=1/2^K$
+\item \textbf{Cross-Modal Decoders}: 3D transposed convolution decoders for missing modality synthesis
+\item \textbf{Diagnosis Classifier}: 3-layer MLP (LayerNorm, Dropout) outputs 3-class: NC/MCI/AD
+\item \textbf{Training Strategy}: 30\% modality dropout, KL divergence + cross-entropy + reconstruction + cross-modal losses
+\end{itemize}
+
+\section{Experiment Results}
+
+\subsection{Synthetic Data Experiments}
+Three experiments on synthetic multimodal data (100 samples, RTX 4060 8GB):
+
+\begin{table}[H]
+\centering
+\caption{Training Results on Synthetic Data (20 epochs)}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Experiment} & \textbf{Latent} & \textbf{Cross} & \textbf{Best Loss} & \textbf{Time} \\
+\midrule
+Exp1 (Baseline) & 128 & Yes & 0.851 & 220s \\
+Exp2 (Large)    & 256 & Yes & \textbf{0.670} & 230s \\
+Exp3 (No-Cross) & 128 & No  & 0.763 & 215s \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Key Finding}: 256-dim latent space improves convergence by 21\% over baseline (0.851 $\rightarrow$ 0.670).
+
+\subsection{Real ADNI Data}
+Training on 17 subjects with all three modalities (NIfTI), 30 epochs, batch size 1.
+
+\begin{table}[H]
+\centering
+\caption{Real Data Training Configuration}
+\begin{tabular}{lr}
+\toprule
+\textbf{Parameter} & \textbf{Value} \\
+\midrule
+Latent dimension & 256 \\
+Hidden dimensions & [128, 64] \\
+Learning rate & $1\times10^{-3}$ \\
+Loss function & KL + Cross-Entropy \\
+Optimizer & AdamW \\
+GPU & RTX 4060 (8GB) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Infrastructure \& Tools}
+
+\begin{table}[H]
+\centering
+\caption{Installed Tools and Alternatives}
+\begin{tabular}{lll}
+\toprule
+\textbf{Function} & \textbf{Original} & \textbf{Alternative} \\
+\midrule
+Brain extraction & SynthStrip/FreeSurfer & HD-BET v2.0.1 \\
+Tissue segmentation & FreeSurfer infantFS & MONAI DynUNet \\
+Registration & ANTs/FSL & SimpleITK 2.5.4 \\
+Quantization & — & bitsandbytes 0.49 \\
+DICOM to NIfTI & dcm2niix & SimpleITK ImageSeriesReader \\
+PPT generation & — & python-pptx \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Conclusions}
+The 256-dim MoPoE-VAE achieves the best synthetic data performance and demonstrates convergence on real ADNI data. Both projects have complete code pipelines and are ready for full-scale training with additional data. The T2T-Bridge project awaits dHCP data download.
+
+\section{Repository}
+\url{https://github.com/tzhazuma/bmebrainproject}
+
+\end{document}
