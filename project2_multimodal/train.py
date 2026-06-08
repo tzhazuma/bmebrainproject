@@ -36,6 +36,8 @@ def parse_args():
     parser.add_argument('--gpus', type=int, default=1)
     parser.add_argument('--resume', type=str, default=None)
     parser.add_argument('--debug', action='store_true')
+    parser.add_argument('--fp16', action='store_true', default=True)
+    parser.add_argument('--no-fp16', dest='fp16', action='store_false')
     return parser.parse_args()
 
 
@@ -116,6 +118,11 @@ def train():
     )
     optimizer = AdamW(params, lr=config['training']['lr'], weight_decay=config['training'].get('weight_decay', 1e-5))
     scheduler = CosineAnnealingWarmRestarts(optimizer, T_0=20, T_mult=2)
+
+    # fp16 AMP scaler
+    use_amp = args.fp16 and device.type == 'cuda'
+    scaler = torch.amp.GradScaler('cuda') if use_amp else None
+    print(f'FP16 AMP: {use_amp}')
 
     # Dataset
     if args.debug:
@@ -222,9 +229,15 @@ def train():
             total_loss = total_loss / len(images_list)
 
             optimizer.zero_grad()
-            total_loss.backward()
-            torch.nn.utils.clip_grad_norm_(params, 1.0)
-            optimizer.step()
+            if scaler is not None:
+                scaler.scale(total_loss).backward()
+                torch.nn.utils.clip_grad_norm_(params, 1.0)
+                scaler.step(optimizer)
+                scaler.update()
+            else:
+                total_loss.backward()
+                torch.nn.utils.clip_grad_norm_(params, 1.0)
+                optimizer.step()
 
             epoch_loss += total_loss.item()
             n_batches += 1
