@@ -185,45 +185,43 @@ def train():
             # For each item, encode and forward
             total_loss = 0
             for img_dict, label in zip(images_list, labels):
-                # Move to device
                 img_device = {k: v.to(device) for k, v in img_dict.items() if v is not None}
-
-                # Available modalities
                 avail = [k for k, v in img_device.items() if v is not None]
 
-                # MoPoE encode
-                z, mu, logvar, kl_loss = vae(img_device, avail)
+                with torch.autocast(device_type='cuda', enabled=use_amp):
+                    # MoPoE encode
+                    z, mu, logvar, kl_loss = vae(img_device, avail)
 
-                # Fuse for classification
-                mus, logvars = vae.encode(img_device, avail)
-                z_list = [mu for mu in mus]
-                fused_z = fusion(z_list)
+                    # Fuse for classification
+                    mus, logvars = vae.encode(img_device, avail)
+                    z_list = [mu for mu in mus]
+                    fused_z = fusion(z_list)
 
-                # Classify
-                logits = classifier(fused_z)
-                focal_loss = FocalLoss(gamma=2.0)(logits, label.unsqueeze(0))
+                    # Classify
+                    logits = classifier(fused_z)
+                    focal_loss = FocalLoss(gamma=2.0)(logits, label.unsqueeze(0))
 
-                # Reconstruct available modalities
-                recon_outputs = {}
-                for mod in avail:
-                    recon_outputs[mod] = decoders[mod](z)
+                    # Reconstruct available modalities
+                    recon_outputs = {}
+                    for mod in avail:
+                        recon_outputs[mod] = decoders[mod](z)
 
-                # Cross-modal synthesis for dropped modalities
-                cross_outputs = {}
-                all_mods = config['model'].get('modalities', ['t1w', 'fdg_pet', 'tau_pet'])
-                for mod in all_mods:
-                    if mod not in avail:
-                        cross_outputs[mod] = decoders[mod](z)
+                    # Cross-modal synthesis for dropped modalities
+                    cross_outputs = {}
+                    all_mods = config['model'].get('modalities', ['t1w', 'fdg_pet', 'tau_pet'])
+                    for mod in all_mods:
+                        if mod not in avail:
+                            cross_outputs[mod] = decoders[mod](z)
 
-                # Combined loss
-                outputs = {
-                    'recon': recon_outputs,
-                    'cross': cross_outputs,
-                    'logits': logits,
-                    'kl': kl_loss,
-                    'z': z,
-                }
-                loss, loss_dict = criterion(outputs, img_device, label.unsqueeze(0))
+                    # Combined loss
+                    outputs = {
+                        'recon': recon_outputs,
+                        'cross': cross_outputs,
+                        'logits': logits,
+                        'kl': kl_loss,
+                        'z': z,
+                    }
+                    loss, loss_dict = criterion(outputs, img_device, label.unsqueeze(0))
                 total_loss += loss
 
             total_loss = total_loss / len(images_list)
