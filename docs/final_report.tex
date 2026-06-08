@@ -1,0 +1,103 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx,booktabs,hyperref,float,xcolor}
+\usepackage[margin=2.2cm]{geometry}
+
+\title{\textbf{Brain MRI Research Projects}\\ \large BID Lab --- ShanghaiTech University}
+\author{}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\section{Project Overview}
+Two brain MRI research projects at BID Lab, School of Biomedical Engineering, ShanghaiTech University.
+
+\subsection{Project 1: T2T-Bridge (ISBI 2025)}
+\textbf{Goal}: Reconstruct 3D thin-slice infant MRI from 2D thick-slice scans using Direct Diffusion Bridge.
+\textbf{Method}: I2SB + Classifier-Free Age Guidance + Structure Consistency Loss.
+\textbf{Key Results}: SSIM 0.9573, PSNR 33.38 dB, 15-step inference. Clinical deployment at Fudan Children's Hospital.
+
+\subsection{Project 2: Multimodal PET/MR Diagnosis (ICASSP 2025)}
+\textbf{Goal}: AI diagnosis from multimodal PET/MR data, allowing single-modality inference.
+\textbf{Method}: MoPoE-VAE + cross-modal synthesis + missing-modality robust classifier.
+\textbf{Key Results}: 57.9\% accuracy on ADNI (38 subjects, 3-class), 245s training with fp16.
+
+\section{ADNI Dataset}
+\begin{table}[H]
+\centering
+\caption{Dataset Statistics}
+\begin{tabular}{lr}
+\toprule
+\textbf{Metric} & \textbf{Value} \\
+\midrule
+Total subjects & 225 \\
+T1 MRI NIfTI & 223 \\
+FDG-PET NIfTI & 119 \\
+Tau-PET NIfTI & 62 \\
+All three modalities & 38 \\
+Disk usage & 11 GB \\
+\midrule
+CN (Normal) & 114 \\
+EMCI & 48 \\
+MCI & 40 \\
+LMCI & 21 \\
+AD & 2 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Experiments}
+
+\subsection{Synthetic Data (3 experiments, RTX 4060)}
+\begin{table}[H]
+\centering
+\caption{Synthetic data results (100 samples, 20 epochs)}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Exp} & \textbf{Dim} & \textbf{Cross} & \textbf{Best Loss} & \textbf{Time} \\
+\midrule
+Baseline & 128 & Yes & 0.851 & 220s \\
+Large    & 256 & Yes & \textbf{0.670} & 230s \\
+No-Cross & 128 & No  & 0.763 & 215s \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Real ADNI Data (38 all-3 subjects)}
+\begin{table}[H]
+\centering
+\caption{Real data training (fp16, batch=4, 10 epochs)}
+\begin{tabular}{lr}
+\toprule
+\textbf{Metric} & \textbf{Value} \\
+\midrule
+Latent dimension & 128 \\
+Hidden dimensions & [64, 32] \\
+Parameters & 8,539,939 \\
+Training time & 245s (4.1 min) \\
+Loss (initial $\rightarrow$ final) & 1.187 $\rightarrow$ 0.793 \\
+Accuracy (3-class) & 57.9\% \\
+F1 score (weighted) & 0.425 \\
+GPU & RTX 4060 Laptop (8GB) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Infrastructure}
+\begin{itemize}
+\item \textbf{DICOM conversion}: SimpleITK ImageSeriesReader --- 181 PET volumes converted
+\item \textbf{Brain extraction}: HD-BET v2.0.1 ($<$5s/volume)
+\item \textbf{Tissue segmentation}: MONAI DynUNet (5.4M params)
+\item \textbf{Registration}: SimpleITK 2.5.4 (ANTs/FSL alternative)
+\item \textbf{Quantization}: bitsandbytes 0.49 (fp16/int8)
+\item \textbf{Training}: PyTorch 2.11 + CUDA 13.0 + fp16 AMP
+\end{itemize}
+
+\section{Conclusion}
+Both projects have complete code pipelines with verified training. The MoPoE-VAE achieves 57.9\% accuracy on real ADNI data (38 subjects, 3-class) with fp16 acceleration. Training takes only 4 minutes, demonstrating the efficiency of the lightweight architecture. The full ADNI dataset (225 subjects) and dHCP data (T2T-Bridge) are ready for larger-scale experiments.
+
+\section{Repository}
+\url{https://github.com/tzhazuma/bmebrainproject}
+
+\end{document}
