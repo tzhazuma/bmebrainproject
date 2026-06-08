@@ -115,25 +115,38 @@ class MoPoEVAE(nn.Module):
             logvar_posterior: MoPoE posterior log-variance [B, latent_dim]
             kl_loss: KL divergence loss
         """
-        all_mus, all_logvars = self.encode(inputs, None)  # get all individual posteriors
+        all_mus, all_logvars = self.encode(inputs, None)
+        n_avail = len(all_mus)
+        if n_avail == 0:
+            return None, None, None, torch.tensor(0.0, device=all_mus[0].device)
 
-        # Build subset posteriors
-        subset_mus, subset_logvars = [], []
-
-        for subset in self.subsets:
+        # Filter subsets to only use available modality indices
+        subset_mus, subset_logvars, valid_weights = [], [], []
+        for subset_idx, subset in enumerate(self.subsets):
+            if max(subset) >= n_avail:
+                continue
             s_mus = [all_mus[i] for i in subset]
             s_logvars = [all_logvars[i] for i in subset]
             mu_poe, logvar_poe = self.product_of_experts(s_mus, s_logvars)
             subset_mus.append(mu_poe)
             subset_logvars.append(logvar_poe)
+            valid_weights.append(self.subset_weights[subset_idx])
+        
+        if not subset_mus:
+            mu_poe, logvar_poe = all_mus[0], all_logvars[0]
+            subset_mus = [mu_poe]
+            subset_logvars = [logvar_poe]
+            valid_weights = torch.ones(1, device=all_mus[0].device)
+        else:
+            valid_weights = torch.stack(valid_weights)
 
         # Mixture: q(z|x) = Σ π_S q_S(z|x)
         # MoPoE: sample a subset S, then sample z ~ q_S
         B = all_mus[0].shape[0]
         device = all_mus[0].device
 
-        # Sample subset indices
-        subset_idx = torch.multinomial(self.subset_weights, B, replacement=True)
+        # Sample subset indices using filtered weights
+        subset_idx = torch.multinomial(valid_weights, B, replacement=True)
 
         # Gather mu, logvar for selected subset
         mu = torch.stack([subset_mus[idx][b] for b, idx in enumerate(subset_idx)])
